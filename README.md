@@ -1,215 +1,579 @@
-# Apache OpenServerless (incubating)
+Guida Completa a OpenServerless
+Indice
 
-Welcome to   [Apache OpenServerless](https://openserverless.apache.org), an incubating project at the [Apache Software Foundation](https://www.apache.org) 
+Introduzione
+Architettura del Sistema
+Componenti e Strumenti
+Installazione e Setup
+Gestione Utenti
+Operazioni Quotidiane
+Troubleshooting
 
-- If you want to **install** Apache OpenServerless  in cloud go [here](https://openserverless.apache.org/docs/installation/).
-- If you want to **understand** what this project is check the [original proposal](https://cwiki.apache.org/confluence/display/INCUBATOR/OpenServerlessProposal). 
-- If you want to **contribute** to the project, read on this README to setup a **development** environment.
-- If you want to **chat** with us, join  [our Discord server](https://bit.ly/openserverless-discord).
-- If you want to **locally install**  open serverless for test or development, read on.
 
-## Test Environment Overview
+1. Introduzione {#introduzione}
+OpenServerless è una piattaforma open source per il serverless computing che offre un'alternativa flessibile e portabile rispetto alle soluzioni proprietarie dei cloud provider (AWS Lambda, Azure Functions, Google Cloud Functions).
+Caratteristiche Principali
 
-Apache OpenServerless is a complex project with lots of dependencies. It also needs a Kubernetes cluster to be executed, tested and developed on.
+Open Source Completo: Codice completamente aperto e modificabile
+Portabilità: Evita il vendor lock-in, deploy ovunque
+Basato su Kubernetes: Sfrutta l'ecosistema cloud-native
+Self-Hosted: Controllo completo su dati e infrastruttura
+Compatibilità Multi-Runtime: Supporta diversi linguaggi di programmazione
 
-To quickly create a development enviromnemt we use a virtual machine in your workstation created with  [multipass](https://multipass.run/). 
 
-You need a virtual machine with at least 8GB of memory and 4 VCPU so your development workstation probably needs at least 16GB and 6 VCPU. Your mileage may vary.
+2. Architettura del Sistema {#architettura}
+Stack Tecnologico
+┌─────────────────────────────────────────┐
+│         CLI Tools (ops, kubectl)        │
+│         Interfaccia Utente              │
+└─────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────┐
+│         Docker Desktop                  │
+│    (Container Runtime + Kubernetes)     │
+└─────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────┐
+│      Kubernetes Cluster                 │
+│   • Orchestrazione Container            │
+│   • Gestione Risorse                    │
+│   • Networking e Storage                │
+└─────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────┐
+│      OpenServerless Platform            │
+│   • Controller                          │
+│   • API Gateway                         │
+│   • Function Runtime                    │
+│   • Database (CouchDB)                  │
+│   • Optional: Redis, MongoDB, MinIO     │
+└─────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────┐
+│      Servizi Esposti                    │
+│   • REST API                            │
+│   • Web UI                              │
+│   • Autenticazione                      │
+└─────────────────────────────────────────┘
+Flusso di Dipendenze
+Senza Docker Desktop:
 
-Read on how to create a test environment.
+❌ Kubernetes non disponibile
+❌ OpenServerless non può partire
+❌ API REST non accessibili
+❌ Web UI non funzionante
+✅ Solo CLI tools disponibili (comandi locali)
 
-## Install Multipass
+Con Docker Desktop Attivo:
 
-Here we describe how to setup the development virtual machine on Linux, Mac and Windows using multipass. First, install multipass.
+✅ Kubernetes operativo
+✅ OpenServerless deployato
+✅ API REST disponibili
+✅ Web UI accessibile
+✅ Autenticazione funzionante
 
-- On Mac, if you already have [brew](https://brew.sh/), installing it is as easy as to type `brew install --cask multipass`.
 
-- On Linux, if you already have [snap](https://snapcraft.io/), installing it is as easy as type `sudo snap install multipass`.
+3. Componenti e Strumenti {#componenti}
+kubectl
+Cosa fa:
 
-- On Windows, you need Windows 10 Pro/Enterprise/Education v1803 or later, or any Windows 10 with VirtualBox. Make sure your local network is designated as private, otherwise Windows prevents Multipass from starting.
+Client a riga di comando per Kubernetes
+Gestisce risorse native K8s (pods, services, secrets, namespaces)
+Opera a livello infrastrutturale basso
 
-Download the multipass installer from [here](https://multipass.run/download/windows) and run the installer. Pick Hyperv in preference, VirtualBox as an alternative.
-
-- Alternative installation options are available [here](https://multipass.run/install)
-
-## Setup a development VM using multipass
-
-The steps and the commands to install the development VM are the same in Linux, Windows and Mac.
-
-Once you have `multipass` installed, open a terminal or powershell and type the following command:
-
-```
-multipass launch -nopsv -c6 -d40g -m16g --cloud-init https://raw.githubusercontent.com/apache/openserverless/main/cloud-init.yaml
-```
-
-Wait until the vm is launched and you see messages like  `Launched: openserverless` (message can be different depending on multipass version effectively installed).
-
-Complete the installation with the following command:
-
-```
-multipass exec opsv ./waitready
-```
-
-Your VM is ready. 
-
-## (Optional) Configure Kubectl access
-
-If you need administrative access to the vm, copy the `.kube/config` file inside the VM locally, then check if you have access:
-
-```
-mkdir $HOME/.kube
-# warning this overwrites an exiting kube config
-multipass exec opsv cat .kube/config >$HOME/.kube/config
-# you need kubectl installed
+Comandi Essenziali:
+bash# Verifica stato cluster
 kubectl get nodes
-```
 
-You should see something like this:
+# Lista namespace
+kubectl get namespaces
 
-```
-NAME             STATUS   ROLES                  AGE     VERSION
-opsv             Ready    control-plane,master   4h58m   v1.29.6+k3s1
-```
+# Vedi tutti i pod
+kubectl get pods --all-namespaces
 
-# Development Environment Overview
+# Vedi risorse in un namespace specifico
+kubectl get all -n <namespace>
 
-If you only want to test OpenServerless, stop here. You should have a working environment.
+# Vedi i secrets
+kubectl get secrets -n <namespace>
 
-The rest of this readme describes how to create a development enviroment within the vm.
+# Vedi i logs di un pod
+kubectl logs <pod-name> -n <namespace>
 
-You need to setup the test environment with multipass before going on with the Development Environment.
+# Edita una risorsa
+kubectl edit secret <secret-name> -n <namespace>
 
-As an IDE we use [VSCode](https://code.visualstudio.com/) as it allows [Remote Development](https://code.visualstudio.com/docs/remote/remote-overview) within the virtual machine, and we provide a workspace for it.
+# Configurazione kubectl
+kubectl config view
+kubectl config current-context
+kubectl config get-contexts
+ops CLI
+Cosa fa:
 
-You may setup the environment by yourself, but it can take a lot of time so we prepared a procedure to setup quickly a ready-to-use development environment which runs the same on Windows, Linux and Mac. 
+CLI specifica per OpenServerless
+Semplifica operazioni complesse
+Opera a livello applicativo alto
+Usa kubectl dietro le quinte
 
-Our development environment uses a virtual machine based on Ubuntu 24.04. The virtual environemnt is initialized with a [cloud-init](https://cloud-init.io/) script we provide. 
+Comandi Essenziali:
+bash# Info sulla CLI
+ops -version
+ops -info
+ops -help
+ops -tasks
 
-The script installs [k3s](https://k3s.io/) as Kubernetes engine and [nix](https://nixos.org/download/#download-nix) to setup development environments. The project includes multiple subprojects, each one with a different set of dependencies so we use [direnv](https://direnv.net/) to automatically activate the right tools when you open a terminal.
+# Setup e configurazione
+ops setup prereq          # Valida prerequisiti
+ops setup cluster         # Deploy su cluster esistente
+ops setup devcluster      # Crea dev cluster locale
+ops setup mini            # Deploy versione slim
+ops setup status          # Verifica stato
+ops setup uninstall       # Disinstalla
 
-*NOTE*: of course you can operate variations. It should be relatively easy to run the development virtual machine in a cloud provider using the provided cloud-init script. Basically all the cloud providers allows to build a VM using cloud-init.
-We do not provide instructions how to setup on the various cloud provider (yet).
+# Configurazione
+ops -config               # Gestione configurazione
 
-You can even setup the development environment by yourself without using the virtual machine, and use a different IDE, but adapting the configuration for your IDE is up to you and could be very time-consuming. Our development environment is the result of a few years of fine tuning, so we do not expect it will be easy to change.
+# Autenticazione
+ops -login <apihost> <username>
 
-## Install openserverless and tools in the VM
+# Gestione utenti (admin)
+ops admin adduser <username> <email> <password> [opzioni]
+ops admin deleteuser <username>
+ops admin listuser [<username>]
+ops admin usage
 
-By default the vm is only for testing, there is no development code inside.
+# Gestione actions (serverless functions)
+ops action list
+ops action create <name> <file>
+ops action update <name> <file>
+ops action delete <name>
+ops action invoke <name>
 
-If you are a developer, fefore accessing the VM use this command to dowload the soucre code and tools you need to for development:
+# Package e trigger
+ops package list
+ops trigger list
+ops rule list
 
-```
-multipass exec opsv ./i-am-a-developer
-```
+# Logs e debugging
+ops activations list
+ops logs <activation-id>
+ops result <activation-id>
+Relazione tra kubectl e ops
+ops admin adduser mario email@test.com Pass123 --all
+           ↓
+    (internamente esegue)
+           ↓
+kubectl create namespace mario
+kubectl create secret generic mario-auth ...
+kubectl apply -f mario-redis-deployment.yaml
+kubectl apply -f mario-mongodb-deployment.yaml
+kubectl apply -f mario-storage-pvc.yaml
+...
+Quando usare cosa:
 
-You may need to wait a little bit before everything is ready.
+ops: Operazioni standard e semplificate su OpenServerless
+kubectl: Debug, modifiche manuali, operazioni non supportate da ops (es. cambio password)
 
-Once everything is ready, read on to configure access to the vm using VSCode.
 
-## Configure SSH access for VSCode
+4. Installazione e Setup {#installazione}
+Prerequisiti
+Sistema:
 
-To access the virtual machine from VSCode you need to setup a ssh key and create a configuration. Open a terminal (powershell on Windows) and follow those steps:
+Docker Desktop con almeno 6GB RAM
+20GB+ spazio disco disponibile
 
-1. Check if you already have a key in `$HOME/.ssh/id_rsa`. If not, generate one with `ssh-keygen -t rsa` then press enter to confirm.
+Verifica installazioni:
+bash# Verifica Docker
+docker --version
+docker ps
 
-2. Copy the key in the virtual machine to allow no password access:
+# Verifica Kubernetes
+kubectl version --client
+kubectl get nodes
 
-```
-multipass transfer $HOME/.ssh/id_rsa.pub opsv:
-multipass exec opsv -- bash -c "cat id_rsa.pub | tee -a .ssh/authorized_keys"
-```
+# Verifica ops
+ops -version
+ops -info
+Setup OpenServerless
+Opzione 1: Mini Setup (Locale Leggero)
+bash# Deploy versione slim
+ops setup mini
 
-3. Create a configuration named `opsv` to easily access it.
+# Accesso: http://devel.miniops.me
+Opzione 2: Cluster Setup (Docker Desktop)
+bash# 1. Avvia Docker Desktop e aspetta che Kubernetes sia pronto
+kubectl get nodes
+# Deve mostrare: docker-desktop   Ready
 
-First type `multipass list`. You will see something like this:
+# 2. Valida prerequisiti
+ops setup prereq
 
-```
-Name                    State             IPv4             Image
-opsv                    Running           10.6.73.253      Ubuntu 24.04 LTS
-                                          10.42.0.0
-                                          10.42.0.1
-```
+# 3. Deploy OpenServerless
+ops setup cluster
 
-Take note of the `<IP>` in the `opsv` line (in this example `10.6.73.253` but your value can be different)
+# 4. Verifica installazione
+ops setup status
 
-Use an editor to add to the file `~/.ssh/config` the following:
+# 5. Verifica pod attivi
+kubectl get pods --all-namespaces
+Opzione 3: Dev Cluster
+bash# Crea e configura un dev cluster locale
+ops setup devcluster
+Verifica Installazione
+bash# Vedi namespace creati
+kubectl get namespaces
+# Dovrebbe mostrare: nuvolaris o simile
 
-```
-Host opsv
-  Hostname <IP>
-  User ubuntu
-  IdentityFile ~/.ssh/id_rsa
-```
+# Vedi pod OpenServerless
+kubectl get pods -n nuvolaris
 
-4. Check you have access without password:
+# Verifica servizi
+kubectl get services -n nuvolaris
 
-```
-ssh opsv
-```
+# Test configurazione ops
+ops -config
 
-Once you accessed the VM configure git with your username and email:
+5. Gestione Utenti {#gestione-utenti}
+Concetto Base
+In OpenServerless: Utenti = Namespace
 
-```
-git config --global user.name "<your-name>"
-git config --global user.email "<your-email>"
-```
+Ogni utente ha il proprio namespace Kubernetes isolato
+I servizi dell'utente girano nel suo namespace
+Isolamento completo tra utenti
 
-## Access the virtual machine with VSCode
+Creare un Utente
+bash# Sintassi base
+ops admin adduser <username> <email> <password>
 
-1. Install [VSCode](https://code.visualstudio.com/)
+# Con tutti i servizi
+ops admin adduser mario mario@example.com Pass123! --all --storagequota=auto
 
-2. Type F1 then "Install Extensions" (or click on the task bar the package icon)
+# Con servizi specifici
+ops admin adduser luigi luigi@example.com Pass456! --redis --mongodb --minio
 
-3. Search "remote ssh" and install the extension "Remote - SSH"
+# Con quota storage specifica
+ops admin adduser peach peach@example.com Pass789! --all --storagequota=10G
+Opzioni servizi disponibili:
 
-4. Type F1 then "Connect" (or click on the `><` symbol in the corner to the left at the bottom) and select "Remote-SSH: Connect Current Windows to Host"
+--all: Abilita tutti i servizi
+--redis: Database key-value in-memory
+--mongodb: Database NoSQL document-oriented
+--minio: Object storage compatibile S3
+--postgres: Database relazionale
+--milvus: Vector database per AI/ML
+--storagequota=<size>: Quota storage (es. 10G) o auto
 
-5. Click on `opsv` then select Linux if requested
+Listare Utenti
+bash# Lista tutti gli utenti
+ops admin listuser
 
-6. Click on the menu bar on `File` then `Openworkspace from file`, then select the `openserverless` folder and open one of the workspaces. Currently:
+# Dettagli utente specifico
+ops admin listuser mario
 
-- `openserverless-cli.code-workspace`: for the CLI along with task
-- `openserverless-operator.code-workspace`: for the Operator alone
-- `openserverless.code-workspace`: for the root with the Operator and the site
+# Con kubectl
+kubectl get namespaces
+Eliminare un Utente
+bash# Attenzione: elimina tutti i dati dell'utente!
+ops admin deleteuser mario
 
-Select `Linux` and then `Trust the authors` if requested.
+# Verifica eliminazione
+kubectl get namespace mario
+# Dovrebbe dare errore: "not found"
+Modificare Password Utente
+Problema: ops non ha comando diretto per cambiare password.
+Soluzione 1: Tramite kubectl (Consigliata)
+bash# 1. Trova il secret dell'utente
+kubectl get secrets -n mario
 
-## Access to the subprojects
+# 2. Visualizza i secrets
+kubectl get secrets -n mario -o yaml
 
-Now you have all the repositories in your virtual machine and the subprojects. Furthermore, in the VM it is configured `nix` that will setup all the dependencies to develop the subprojects, and `direnv` that activates the right dependencies when you open the terminal in a subproject.
+# 3. Identifica il secret con le credenziali (es. "mario-auth")
+kubectl get secret mario-auth -n mario -o yaml
 
-For example try to execute `Terminal > New Terminal` and you will see you can choose the subproject. If you select `website` for example, the system will download all the dependencies to build the web site, in this case `hugo` and `npm` and install the required tools `postcss`.
+# 4. Codifica la nuova password in base64
+echo -n "NuovaPassword123!" | base64
+# Output: TnVvdmFQYXNzd29yZDEyMyE=
 
-## Use Git Submodules
+# 5. Edita il secret
+kubectl edit secret mario-auth -n mario
+# Sostituisci il campo password con il nuovo valore base64
 
-Apache OpenServerless uses git submodules.
+# 6. Salva e esci
+Soluzione 2: Ricreare utente (Perdita Dati!)
+bash# Salva configurazioni importanti prima!
 
-This means in practice two things: you have to do Pull Requests and changes forking the subprojects individually.
+# Elimina utente
+ops admin deleteuser mario
 
-Then you have from time to time to update the whole subtree to the latest releases of all the subprojects.
+# Ricrea con nuova password
+ops admin adduser mario mario@example.com NuovaPass! --all --storagequota=auto
+Monitorare Risorse Utente
+bash# Vedi utilizzo storage
+ops admin usage
 
-### Contributing to subprojects
+# Debug dettagliato
+ops admin usage --debug
 
-To contribute to a subproject:
+# Vedi tutte le risorse di un utente
+kubectl get all -n mario
 
-- fork a subproject: for example `github.com/apache/openserverless-website` into `github.com/<username>/openserverless-website`
-- add a remote to the subproject to point to your fork: for example after opening the `website` terminal, add `git remote add <username> github.com/<username>/openserverless-website`
-- now you can change the code and push in your fork: `git push <username> main`
-- you can now contribute a Pull Request
+# Vedi pod specifici
+kubectl get pods -n mario
 
-### Syncronize the tree
+# Logs di un servizio utente
+kubectl logs <pod-name> -n mario
 
-Open a terminal in the `root` subproject and type `./update-tree.sh`. This script will update all the subprojects to the latest available version on the main repo.
+6. Operazioni Quotidiane {#operazioni}
+Login e Autenticazione
+bash# Login standard
+ops -login http://miniops.me mario
+# Inserisci password quando richiesta
 
-Do not worry about contributing PR to update dependencies as the maintainers will periodically take care of this.
+# Login con URL custom
+ops -login https://mio-openserverless.com mario
 
-## Cleanup
+# Con variabili d'ambiente (per script)
+export OPS_APIHOST=http://miniops.me
+export OPS_USER=mario
+export OPS_PASSWORD=Pass123!
+ops -login
+Gestione Actions (Funzioni Serverless)
+Creare una Action
+bash# Action JavaScript inline
+ops action create hello <(echo 'function main() { return {body: "Hello World!"}; }') --kind nodejs:default
 
-If you do not want to keep the VM anymore, ensure you have backed up all your files. Then remove it from your cloud provider (check your cloud provider documentation).
+# Action da file
+echo 'function main(params) { 
+  return {greeting: "Hello " + params.name}; 
+}' > hello.js
 
-For multipass, use the following commands to cleanup:
+ops action create hello hello.js --kind nodejs:default
 
-```
-multipass delete opsv --purge
-```
+# Action Python
+echo 'def main(args):
+    name = args.get("name", "stranger")
+    return {"greeting": f"Hello {name}"}
+' > hello.py
 
+ops action create hello-py hello.py --kind python:default
+Invocare una Action
+bash# Invocazione semplice
+ops invoke hello
+
+# Con parametri
+ops invoke hello name=Mario
+
+# Invocazione bloccante (aspetta risultato)
+ops invoke hello --result
+
+# Invocazione asincrona
+ops invoke hello --async
+Gestire Actions
+bash# Lista tutte le actions
+ops action list
+
+# Dettagli action
+ops action get hello
+
+# Aggiorna action
+ops action update hello hello-v2.js
+
+# Elimina action
+ops action delete hello
+
+# Ottieni URL pubblico
+ops url hello
+Logs e Debugging
+bash# Lista attivazioni recenti
+ops activations list
+
+# Logs di una specifica attivazione
+ops logs <activation-id>
+
+# Risultato di un'attivazione
+ops result <activation-id>
+
+# Logs in tempo reale (se disponibile)
+ops activations poll
+Package (Raggruppamento Actions)
+bash# Crea package
+ops package create mypackage
+
+# Lista package
+ops package list
+
+# Crea action in un package
+ops action create mypackage/hello hello.js
+
+# Invoca action in package
+ops invoke mypackage/hello
+
+# Elimina package
+ops package delete mypackage
+Trigger e Rule
+bash# Crea trigger
+ops trigger create mytrigger
+
+# Crea rule (collega trigger ad action)
+ops rule create myrule mytrigger hello
+
+# Lista trigger e rule
+ops trigger list
+ops rule list
+
+# Fire trigger
+ops trigger fire mytrigger name=Mario
+
+# Elimina
+ops rule delete myrule
+ops trigger delete mytrigger
+
+7. Troubleshooting {#troubleshooting}
+Problemi Comuni
+1. Connection Refused
+Sintomo:
+error: dial tcp 127.0.0.1:6443: connect: connection refused
+Causa: Docker Desktop / Kubernetes non avviato
+Soluzione:
+bash# Avvia Docker Desktop
+# Aspetta che l'icona diventi verde
+# Verifica Kubernetes
+kubectl get nodes
+2. OpenServerless Non Risponde
+Sintomo:
+error: Post "http://miniops.me/api/v1/...": connection refused
+Causa: OpenServerless non deployato o non attivo
+Soluzione:
+bash# Verifica pod OpenServerless
+kubectl get pods --all-namespaces
+
+# Se non ci sono pod di OpenServerless
+ops setup cluster
+
+# Verifica status
+ops setup status
+3. Utente Non Può Accedere
+Causa possibili:
+
+Password errata
+Utente non creato correttamente
+Servizi utente non attivi
+
+Soluzione:
+bash# Verifica utente esiste
+ops admin listuser mario
+
+# Verifica namespace
+kubectl get namespace mario
+
+# Verifica pod utente
+kubectl get pods -n mario
+
+# Verifica secrets
+kubectl get secrets -n mario
+
+# Ricrea utente se necessario
+ops admin deleteuser mario
+ops admin adduser mario mario@example.com NewPass! --all
+4. Action Non Si Avvia
+Debug:
+bash# Verifica action esiste
+ops action list
+
+# Vedi dettagli
+ops action get <action-name>
+
+# Verifica logs ultimi errori
+ops activations list
+ops logs <last-activation-id>
+
+# Verifica pod nel namespace
+kubectl get pods -n <username>
+kubectl logs <pod-name> -n <username>
+5. Storage Quota Superata
+Verifica:
+bash# Vedi utilizzo storage
+ops admin usage
+
+# Debug dettagliato
+ops admin usage --debug
+Soluzione:
+
+Aumenta quota utente (ricrea utente con quota maggiore)
+Pulisci dati vecchi
+Compatta database: ops admin compact
+
+Reset Completo
+Se nulla funziona:
+bash# 1. Reset ops
+ops -reset
+
+# 2. Disinstalla OpenServerless
+ops setup uninstall
+
+# 3. Ferma Docker Desktop
+# 4. Cancella dati Docker (opzionale ma efficace)
+#    Settings → Troubleshoot → Clean/Purge data
+
+# 5. Riavvia Docker Desktop
+
+# 6. Reinstalla
+ops setup prereq
+ops setup cluster
+Comandi Diagnostici Utili
+bash# Info sistema
+ops -info
+kubectl version
+docker version
+
+# Stato cluster
+kubectl get nodes
+kubectl get namespaces
+kubectl get pods --all-namespaces
+kubectl get services --all-namespaces
+
+# Stato OpenServerless
+ops setup status
+ops -config
+
+# Logs sistema
+kubectl logs <pod-name> -n nuvolaris
+kubectl describe pod <pod-name> -n nuvolaris
+
+# Eventi recenti
+kubectl get events --all-namespaces --sort-by='.lastTimestamp'
+
+# Risorse cluster
+kubectl top nodes
+kubectl top pods --all-namespaces
+
+Riepilogo Comandi Rapidi
+Setup Iniziale
+bashops setup prereq          # Valida prerequisiti
+ops setup cluster         # Installa OpenServerless
+ops setup status          # Verifica installazione
+Gestione Utenti
+bashops admin adduser <user> <email> <pass> --all
+ops admin listuser
+ops admin deleteuser <user>
+Login e Uso
+bashops -login http://miniops.me <username>
+ops action create <name> <file>
+ops invoke <name>
+ops action list
+Debug
+bashkubectl get pods --all-namespaces
+kubectl logs <pod> -n <namespace>
+ops activations list
+ops logs <activation-id>
+
+Risorse
+
+Documentazione ufficiale: https://openserverless.apache.org
+Repository GitHub: https://github.com/apache/openserverless
+Task Repository: https://github.com/apache/openserverless-task
+Supporto Community: GitHub Issues
+
+
+Guida creata in base all'esperienza pratica con OpenServerless 0.1.0
